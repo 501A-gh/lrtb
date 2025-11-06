@@ -479,24 +479,28 @@ export default function PerspectiveCorrector() {
     );
   };
 
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!corners) return;
-
+  // Helper to map client coordinates (mouse/pointer) to logical canvas coords (0..canvasSize)
+  const getLogicalCoordsFromClient = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-
-    // Map screen px to logical canvas units (which include padding), then subtract PAD
     const logicalTotalWidth = canvasSize.width + 2 * PAD;
     const logicalTotalHeight = canvasSize.height + 2 * PAD;
     const logicalXTotal =
-      (e.clientX - rect.left) * (logicalTotalWidth / rect.width);
+      (clientX - rect.left) * (logicalTotalWidth / rect.width);
     const logicalYTotal =
-      (e.clientY - rect.top) * (logicalTotalHeight / rect.height);
-
+      (clientY - rect.top) * (logicalTotalHeight / rect.height);
     const x = logicalXTotal - PAD;
     const y = logicalYTotal - PAD;
+    return { x, y };
+  };
+
+  // Pointer event handlers (works for touch & mouse). Use pointer capture so moves stay active.
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (!corners) return;
+    const coords = getLogicalCoordsFromClient(e.clientX, e.clientY);
+    if (!coords) return;
+    const { x, y } = coords;
 
     const cornerKeys: (keyof Corners)[] = [
       "topLeft",
@@ -509,28 +513,22 @@ export default function PerspectiveCorrector() {
       const distance = Math.hypot(x - corner.x, y - corner.y);
       if (distance < Math.max(20, CORNER_RADIUS * 1.8)) {
         setDraggingCorner(key);
+        try {
+          // capture the pointer so we continue receiving events even if the finger leaves the element
+          if (canvasRef.current)
+            canvasRef.current.setPointerCapture(e.pointerId);
+        } catch {}
         e.preventDefault();
         break;
       }
     }
   };
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
     if (!draggingCorner || !corners) return;
-
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const rect = canvas.getBoundingClientRect();
-    const logicalTotalWidth = canvasSize.width + 2 * PAD;
-    const logicalTotalHeight = canvasSize.height + 2 * PAD;
-    const logicalXTotal =
-      (e.clientX - rect.left) * (logicalTotalWidth / rect.width);
-    const logicalYTotal =
-      (e.clientY - rect.top) * (logicalTotalHeight / rect.height);
-
-    let x = logicalXTotal - PAD;
-    let y = logicalYTotal - PAD;
+    const coords = getLogicalCoordsFromClient(e.clientX, e.clientY);
+    if (!coords) return;
+    let { x, y } = coords;
 
     // Clamp to image logical area
     x = Math.max(0, Math.min(canvasSize.width, x));
@@ -542,7 +540,11 @@ export default function PerspectiveCorrector() {
     });
   };
 
-  const handleMouseUp = () => {
+  const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    try {
+      if (canvasRef.current)
+        canvasRef.current.releasePointerCapture(e.pointerId);
+    } catch {}
     setDraggingCorner(null);
   };
 
@@ -865,10 +867,10 @@ export default function PerspectiveCorrector() {
           <CardContent className="flex items-center justify-center h-full flex-1">
             <canvas
               ref={canvasRef}
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
+              onPointerCancel={handlePointerUp}
               className="max-w-full cursor-crosshair border border-border rounded shadow-lg"
               style={{
                 touchAction: "none",
