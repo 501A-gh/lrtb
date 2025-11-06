@@ -2,15 +2,15 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Perspective Corrector",
+  title: "LRTB",
   description:
     "Interactive tool for correcting perspective distortion in photos",
   manifest: "/manifest.json",
-  themeColor: "#2563eb",
+  themeColor: "#27272A",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Perspective Corrector",
+    title: "LRTB",
   },
   viewport: {
     width: "device-width",
